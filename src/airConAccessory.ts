@@ -61,13 +61,8 @@ export class NatureNemoAirConAccessory {
       const fanService
         = this.accessory.getService(this.platform.Service.Fanv2) || this.accessory.addService(this.platform.Service.Fanv2);
       this.accessory.context.speeds = fanSpeeds;
-
-      const nonAutoSpeeds = this.getNonAutoFanSpeeds(fanSpeeds);
-
       
-      const fanSpeedStep = parseFloat(
-        (100 / nonAutoSpeeds.length).toFixed(2),
-      );
+      const fanSpeedStep = this.getFanSpeedStep(fanSpeeds);
 
       this.accessory.context.fanSpeedStep = fanSpeedStep;
 
@@ -96,6 +91,12 @@ export class NatureNemoAirConAccessory {
 
   
 
+
+  private getFanSpeedStep(fanSpeeds: Array<string>) {
+    return parseFloat(
+      (100 / fanSpeeds.length).toFixed(2),
+    );
+  }
 
   getRotationSpeed(callback: CharacteristicGetCallback): void {
     this.platform.logger.debug('getRotationSpeed called');
@@ -263,29 +264,17 @@ export class NatureNemoAirConAccessory {
   }
 
   private natureToHomeKitRotationSpeed(speed: string, values: Array<string>) : number {
-    if(speed === 'auto') {
-      return 0;
-    } else {
-      const numericValues = values.filter(value => !(value === 'auto'));
-      const multiplier = 100 / numericValues.length; 
-      const index = numericValues.indexOf(speed);
-      return index + 1 * multiplier;
-    }
-  }
-
-  private getNonAutoFanSpeeds(values: Array<string>) : Array<string> {
-    return values.filter(value => !(value === 'auto'));
+    return values.indexOf(speed) + 1 * this.getFanSpeedStep(values);
   }
 
   private homekitToNatureRotationSpeed(speed: number, values: Array<string>) : string {
-    const numericValues = this.getNonAutoFanSpeeds(values);
 
     if(speed === 0) {
-      return 'auto';
+      return values[0];
     } else if (speed === 100){
-      return numericValues[numericValues.length - 1];
+      return values[values.length - 1];
     } else {
-      return numericValues[Math.round(speed / this.accessory.context.fanSpeedStep) - 1];
+      return values[Math.round(speed / this.getFanSpeedStep(values)) - 1];
     }
   }
 
