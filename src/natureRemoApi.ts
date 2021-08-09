@@ -7,7 +7,7 @@ import { Mutex } from './mutex';
 const API_URL = 'https://api.nature.global';
 const CACHE_THRESHOLD = 10 * 1000;
 
-interface Appliance {
+export interface Appliance {
   id: string;
   nickname: string;
   type: string;
@@ -15,12 +15,34 @@ interface Appliance {
     temp: string;
     mode: string;
     button: string;
+    vol?: string;
+    dir?: string;
+    dirh?: string;
   };
+  aircon: Aircon;
   light: {
     state: {
       power: string;
     };
   };
+}
+
+interface Aircon {
+  range: {
+    modes: Modes;
+  };
+  tempUnit: string;
+}
+
+interface Modes {
+  [propName: string]: Mode;
+}
+
+interface Mode {
+  temp?: Array<string>;
+  dir?: Array<string>;
+  dirh?: Array<string>;
+  vol?: Array<string>;
 }
 
 interface Device {
@@ -45,6 +67,9 @@ interface AirConState {
   on: boolean;
   mode: string;
   temp: string;
+  vol?: string;
+  dir?: string;
+  dirh?: string;
 }
 
 interface LightState {
@@ -120,6 +145,9 @@ export class NatureRemoApi {
       on: appliance.settings.button !== 'power-off',
       mode: appliance.settings.mode,
       temp: appliance.settings.temp,
+      vol: appliance.settings.vol,
+      dir: appliance.settings.dir,
+      dirh: appliance.settings.dirh,
     };
   }
 
@@ -162,6 +190,10 @@ export class NatureRemoApi {
 
   async setAirconTemperature(applianceId: string, temperature: string): Promise<void> {
     this.setAirconSettings(applianceId, { 'temperature': temperature });
+  }
+
+  async setAirconRotationSpeed(applianceId: string, speed: string): Promise<void> {
+    this.setAirconSettings(applianceId, { 'air_volume': speed });
   }
 
   private async setAirconSettings(applianceId: string, settings: Record<string, string>): Promise<void> {

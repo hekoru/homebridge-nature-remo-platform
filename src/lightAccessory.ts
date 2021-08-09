@@ -16,13 +16,15 @@ export class NatureNemoLightAccessory {
   
   constructor(
     private readonly platform: NatureRemoPlatform,
-    private readonly accessory: PlatformAccessory,
-    private readonly appliance_id: string,
+    private readonly accessory: PlatformAccessory
   ) {
+    this.name = accessory.context.appliance.nickname;
+    this.id = accessory.context.appliance.id;
+
     this.accessory.getService(this.platform.Service.AccessoryInformation)!
       .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Nature Inc.')
       .setCharacteristic(this.platform.Characteristic.Model, 'Nature Remo series')
-      .setCharacteristic(this.platform.Characteristic.SerialNumber, appliance_id);
+      .setCharacteristic(this.platform.Characteristic.SerialNumber, this.id);
 
     this.service = this.accessory.getService(this.platform.Service.Lightbulb) || this.accessory.addService(this.platform.Service.Lightbulb);
     this.service.setCharacteristic(this.platform.Characteristic.Name, accessory.context.appliance.nickname);
@@ -31,8 +33,7 @@ export class NatureNemoLightAccessory {
       .on(CharacteristicEventTypes.SET, this.setOn.bind(this));
 
     this.platform.logger.debug('[%s] id -> %s', accessory.context.appliance.nickname, accessory.context.appliance.id);
-    this.name = accessory.context.appliance.nickname;
-    this.id = accessory.context.appliance.id;
+    
   }
 
   getOn(callback: CharacteristicGetCallback): void {

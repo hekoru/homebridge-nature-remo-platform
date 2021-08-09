@@ -47,6 +47,7 @@ export class NatureRemoPlatform implements DynamicPlatformPlugin {
   }
 
   async discoverDevices(): Promise<void> {
+    this.logger.info('Am I getting here?');
     const devices = await this.natureRemoApi.getAllDevices();
     for (const device of devices) {
       const existingAccessory = this.accessories.find(accessory => accessory.UUID === device.id);
@@ -65,23 +66,26 @@ export class NatureRemoPlatform implements DynamicPlatformPlugin {
     }
     const appliances = await this.natureRemoApi.getAllAppliances();
     for (const appliance of appliances) {
+      this.logger.info('Appliance:', appliance);
       if (appliance.type === 'LIGHT' || appliance.type === 'AC') {
         const existingAccessory = this.accessories.find(accessory => accessory.UUID === appliance.id);
         if (existingAccessory) {
           this.logger.info('Restoring existing accessory from cache:', existingAccessory.displayName);
           if (appliance.type === 'LIGHT') {
-            new NatureNemoLightAccessory(this, existingAccessory, appliance.id);
+            new NatureNemoLightAccessory(this, existingAccessory);
           } else if (appliance.type === 'AC') {
-            new NatureNemoAirConAccessory(this, existingAccessory, appliance.id);
+            this.logger.info('Modes:', appliance.aircon.range.modes);
+            new NatureNemoAirConAccessory(this, existingAccessory);
           }
         } else {
           this.logger.info('Adding new accessory:', appliance.nickname);
           const accessory = new this.api.platformAccessory(appliance.nickname, appliance.id);
           accessory.context = { appliance: appliance };
           if (appliance.type === 'LIGHT') {
-            new NatureNemoLightAccessory(this, accessory, appliance.id);
+            new NatureNemoLightAccessory(this, accessory);
           } else if (appliance.type === 'AC') {
-            new NatureNemoAirConAccessory(this, accessory, appliance.id);
+            this.logger.info('Modes:', appliance.aircon.range.modes);
+            new NatureNemoAirConAccessory(this, accessory);
           }
           this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
         }

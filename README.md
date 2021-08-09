@@ -1,7 +1,7 @@
 # Homebridge Nature Remo Platform
 
-[![npm](https://badgen.net/npm/v/@takeya0x86/homebridge-nature-remo-platform?icon=npm&label)](https://www.npmjs.com/package/@takeya0x86/homebridge-nature-remo-platform)
-[![Build and Lint](https://github.com/takeya0x86/homebridge-nature-remo-platform/actions/workflows/build.yml/badge.svg)](https://github.com/takeya0x86/homebridge-nature-remo-platform/actions/workflows/build.yml)
+[![npm](https://badgen.net/npm/v/@hekoru/homebridge-nature-remo-platform?icon=npm&label)](https://www.npmjs.com/package/@hekoru/homebridge-nature-remo-platform)
+[![Build and Lint](https://github.com/hekoru/homebridge-nature-remo-platform/actions/workflows/build.yml/badge.svg)](https://github.com/hekoru/homebridge-nature-remo-platform/actions/workflows/build.yml)
 
 Homebridge plugin for Nature Remo which supports lights and air conditioners. **This plugin is unofficial.**
 
@@ -11,7 +11,7 @@ Homebridge plugin for Nature Remo which supports lights and air conditioners. **
 
 ## Installation
 
-1. Search for `@takeya0x86/homebridge-nature-remo-platform` on the plugin screen of [Homebridge Config UI X](https://github.com/oznu/homebridge-config-ui-x).
+1. Search for `@hekoru/homebridge-nature-remo-platform` on the plugin screen of [Homebridge Config UI X](https://github.com/oznu/homebridge-config-ui-x).
 2. Click `INSTALL`.
 
 ## Configuration

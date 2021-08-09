@@ -10,48 +10,125 @@ import {
 import { NatureRemoPlatform } from './platform';
 
 export class NatureNemoAirConAccessory {
-  private readonly service: Service;
   private readonly name: string;
   private readonly id: string;
   private readonly deviceId: string;
 
   private state = {
     targetHeatingCoolingState: this.platform.Characteristic.TargetHeatingCoolingState.OFF,
+    rotationSpeed: 'auto',
     targetTemperature: 24,
   };
 
   constructor(
     private readonly platform: NatureRemoPlatform,
     private readonly accessory: PlatformAccessory,
-    private readonly accesory_id: string,
   ) {
-    this.accessory.getService(this.platform.Service.AccessoryInformation)!
-      .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Nature Inc.')
-      .setCharacteristic(this.platform.Characteristic.Model, 'Nature Remo series')
-      .setCharacteristic(this.platform.Characteristic.SerialNumber, accesory_id);
 
-    this.service
-      = this.accessory.getService(this.platform.Service.Thermostat) || this.accessory.addService(this.platform.Service.Thermostat);
-    this.service.setCharacteristic(this.platform.Characteristic.Name, accessory.context.appliance.nickname);
-
-    this.service.getCharacteristic(this.platform.Characteristic.CurrentHeatingCoolingState)
-      .on(CharacteristicEventTypes.GET, this.getCurrentHeatingCoolingState.bind(this));
-    this.service.getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState)
-      .on(CharacteristicEventTypes.GET, this.getTargetHeatingCoolingState.bind(this))
-      .on(CharacteristicEventTypes.SET, this.setTargetHeatingCoolingState.bind(this));
-    this.service.getCharacteristic(this.platform.Characteristic.CurrentTemperature)
-      .on(CharacteristicEventTypes.GET, this.getCurrentTemperature.bind(this));
-    this.service.getCharacteristic(this.platform.Characteristic.TargetTemperature)
-      .on(CharacteristicEventTypes.GET, this.getTargetTemperature.bind(this))
-      .on(CharacteristicEventTypes.SET, this.setTargetTemperature.bind(this));
-    this.service.getCharacteristic(this.platform.Characteristic.TemperatureDisplayUnits)
-      .on(CharacteristicEventTypes.GET, this.getTemperatureDisplayUnits.bind(this))
-      .on(CharacteristicEventTypes.SET, this.setTemperatureDisplayUnits.bind(this));
-
-    this.platform.logger.debug('[%s] id -> %s', accessory.context.appliance.nickname, accessory.context.appliance.id);
     this.name = accessory.context.appliance.nickname;
     this.id = accessory.context.appliance.id;
     this.deviceId = accessory.context.appliance.device.id;
+
+    this.accessory.getService(this.platform.Service.AccessoryInformation)!
+      .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Nature Inc.')
+      .setCharacteristic(this.platform.Characteristic.Model, 'Nature Remo series')
+      .setCharacteristic(this.platform.Characteristic.SerialNumber, this.id);
+
+    const thermostatService
+      = this.accessory.getService(this.platform.Service.Thermostat) || this.accessory.addService(this.platform.Service.Thermostat);
+    thermostatService.setCharacteristic(this.platform.Characteristic.Name, accessory.context.appliance.nickname);
+
+    thermostatService.getCharacteristic(this.platform.Characteristic.CurrentHeatingCoolingState)
+      .on(CharacteristicEventTypes.GET, this.getCurrentHeatingCoolingState.bind(this));
+    thermostatService.getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState)
+      .on(CharacteristicEventTypes.GET, this.getTargetHeatingCoolingState.bind(this))
+      .on(CharacteristicEventTypes.SET, this.setTargetHeatingCoolingState.bind(this));
+    thermostatService.getCharacteristic(this.platform.Characteristic.CurrentTemperature)
+      .on(CharacteristicEventTypes.GET, this.getCurrentTemperature.bind(this));
+    thermostatService.getCharacteristic(this.platform.Characteristic.TargetTemperature)
+      .on(CharacteristicEventTypes.GET, this.getTargetTemperature.bind(this))
+      .on(CharacteristicEventTypes.SET, this.setTargetTemperature.bind(this));
+    thermostatService.getCharacteristic(this.platform.Characteristic.TemperatureDisplayUnits)
+      .on(CharacteristicEventTypes.GET, this.getTemperatureDisplayUnits.bind(this))
+      .on(CharacteristicEventTypes.SET, this.setTemperatureDisplayUnits.bind(this));
+
+    let fanSpeeds = accessory.context.appliance.aircon?.range?.modes?.cool?.vol;
+    if(!fanSpeeds) {
+      fanSpeeds = accessory.context.appliance.aircon?.range?.modes?.warm?.vol;
+    }
+
+    if(fanSpeeds) {
+      const fanService
+        = this.accessory.getService(this.platform.Service.Fanv2) || this.accessory.addService(this.platform.Service.Fanv2);
+      this.accessory.context.speeds = fanSpeeds;
+
+      const nonAutoSpeeds = this.getNonAutoFanSpeeds(fanSpeeds);
+
+      
+      const fanSpeedStep = parseFloat(
+        (100 / nonAutoSpeeds.length).toFixed(2),
+      );
+
+      this.accessory.context.fanSpeedStep = fanSpeedStep;
+
+      fanService.setCharacteristic(this.platform.Characteristic.Name, 'Fan Speed');
+      fanService.getCharacteristic(this.platform.Characteristic.RotationSpeed)
+        .on(CharacteristicEventTypes.GET, this.getRotationSpeed.bind(this))
+        .on(CharacteristicEventTypes.SET, this.setRotationSpeed.bind(this))
+        .props.minStep = fanSpeedStep;
+    }
+    
+
+    // this.platform.logger('WAT ', accessory.context.appliance.aircon.range.modes);
+
+    // if(accessory.context.appliance.aircon?.range?.modes?.dry) {
+    //   this.platform.logger('Supports dry mode');
+    //   this.service.getCharacteristic(this.platform.Characteristic.TargetHumidifierDehumidifierState)
+    //     .on(CharacteristicEventTypes.GET, this.getHumidifierTargetStatus.bind(this))
+    //     .on(CharacteristicEventTypes.SET, this.setHumidifierTargetStatus.bind(this))
+    //     .props.validValues = [2];
+    // }
+
+
+    this.platform.logger.debug('[%s] id -> %s', accessory.context.appliance.nickname, accessory.context.appliance.id);
+    
+  }
+
+  
+
+
+  getRotationSpeed(callback: CharacteristicGetCallback): void {
+    this.platform.logger.debug('getRotationSpeed called');
+    this.platform.natureRemoApi.getAirConState(this.id).then((airConState) => {
+      this.platform.logger.info('[%s] Target Rotation Speed -> %s', this.name, airConState.vol);
+      if(airConState.vol) {
+        this.state.rotationSpeed = airConState.vol;
+        const homeKitRotationSpeed = this.natureToHomeKitRotationSpeed(airConState.vol, this.accessory.context.speeds);
+        
+        callback(null, homeKitRotationSpeed);
+      } else {
+        callback(new Error('Rotation speed not returned in current state'));
+      }
+    }).catch((err) => {
+      this.platform.logger.error(err.message);
+      callback(err);
+    });
+  }
+
+  setRotationSpeed(value: CharacteristicValue, callback: CharacteristicSetCallback): void {
+    const targetRotationSpeed = this.homekitToNatureRotationSpeed(value as number, this.accessory.context.speeds);
+    if(this.state.rotationSpeed === targetRotationSpeed) {
+      callback(null);
+    } else {
+      this.state.rotationSpeed = targetRotationSpeed;
+      this.platform.natureRemoApi.setAirconRotationSpeed(this.id, targetRotationSpeed).then(() => {
+        this.platform.logger.info('[%s] Target Rotation Speed <- %s (%s)', this.name, targetRotationSpeed, value);
+        callback(null);
+      }).catch((err) => {
+        this.platform.logger.error(err.message);
+        callback(err);
+      });
+    }
   }
 
   getCurrentHeatingCoolingState(callback: CharacteristicGetCallback): void {
@@ -177,9 +254,38 @@ export class NatureNemoAirConAccessory {
         return this.platform.Characteristic.CurrentHeatingCoolingState.HEAT;
       } else if (mode === 'cool') {
         return this.platform.Characteristic.CurrentHeatingCoolingState.COOL;
+      } else if (mode === 'dry') {
+        return this.platform.Characteristic.CurrentHeatingCoolingState.HEAT;
       } else {
         throw new Error(`This plugin does not support ${mode}`);
       }
+    }
+  }
+
+  private natureToHomeKitRotationSpeed(speed: string, values: Array<string>) : number {
+    if(speed === 'auto') {
+      return 0;
+    } else {
+      const numericValues = values.filter(value => !(value === 'auto'));
+      const multiplier = 100 / numericValues.length; 
+      const index = numericValues.indexOf(speed);
+      return index + 1 * multiplier;
+    }
+  }
+
+  private getNonAutoFanSpeeds(values: Array<string>) : Array<string> {
+    return values.filter(value => !(value === 'auto'));
+  }
+
+  private homekitToNatureRotationSpeed(speed: number, values: Array<string>) : string {
+    const numericValues = this.getNonAutoFanSpeeds(values);
+
+    if(speed === 0) {
+      return 'auto';
+    } else if (speed === 100){
+      return numericValues[numericValues.length - 1];
+    } else {
+      return numericValues[Math.round(speed / this.accessory.context.fanSpeedStep) - 1];
     }
   }
 
