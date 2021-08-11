@@ -347,7 +347,7 @@ export class NatureNemoAirConAccessory {
   private homekitToNatureRotationSpeed(speed: number, values: Array<string>) : string {
 
     if(speed === 0) {
-      throw new Error('Speed can not be set to zero');
+      throw values[0];
     } else if (speed === 100){
       return values[values.length - 1];
     } else {

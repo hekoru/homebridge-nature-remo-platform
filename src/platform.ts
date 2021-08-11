@@ -47,7 +47,6 @@ export class NatureRemoPlatform implements DynamicPlatformPlugin {
   }
 
   async discoverDevices(): Promise<void> {
-    this.logger.info('Am I getting here?');
     const devices = await this.natureRemoApi.getAllDevices();
     for (const device of devices) {
       const existingAccessory = this.accessories.find(accessory => accessory.UUID === device.id);
@@ -66,7 +65,6 @@ export class NatureRemoPlatform implements DynamicPlatformPlugin {
     }
     const appliances = await this.natureRemoApi.getAllAppliances();
     for (const appliance of appliances) {
-      this.logger.info('Appliance:', appliance);
       if (appliance.type === 'LIGHT' || appliance.type === 'AC') {
         const existingAccessory = this.accessories.find(accessory => accessory.UUID === appliance.id);
         if (existingAccessory) {
@@ -74,7 +72,6 @@ export class NatureRemoPlatform implements DynamicPlatformPlugin {
           if (appliance.type === 'LIGHT') {
             new NatureNemoLightAccessory(this, existingAccessory);
           } else if (appliance.type === 'AC') {
-            this.logger.info('Modes:', appliance.aircon.range.modes);
             new NatureNemoAirConAccessory(this, existingAccessory);
           }
         } else {
@@ -83,8 +80,7 @@ export class NatureRemoPlatform implements DynamicPlatformPlugin {
           accessory.context = { appliance: appliance };
           if (appliance.type === 'LIGHT') {
             new NatureNemoLightAccessory(this, accessory);
-          } else if (appliance.type === 'AC') {
-            this.logger.info('Modes:', appliance.aircon.range.modes);
+          } else if (appliance.type === 'AC') {            
             new NatureNemoAirConAccessory(this, accessory);
           }
           this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);

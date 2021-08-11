@@ -4,15 +4,18 @@ import {
   PlatformAccessory,
   Service,
 } from 'homebridge';
+import { threadId } from 'worker_threads';
 
 import { NatureRemoPlatform } from './platform';
 
 const UPDATE_INTERVAL = 1000 * 60 * 5;
 
 export class NatureNemoSensorAccessory {
-  private readonly service: Service;
   private readonly name: string;
   private readonly id: string;
+  private readonly temperatureService: Service;
+  private readonly lightService?: Service;
+  private readonly humidityService?: Service;
   
   constructor(
     private readonly platform: NatureRemoPlatform,
@@ -24,25 +27,25 @@ export class NatureNemoSensorAccessory {
       .setCharacteristic(this.platform.Characteristic.Model, 'Nature Remo series')
       .setCharacteristic(this.platform.Characteristic.SerialNumber, serial_number);
 
-    const temperatureService
+    this.temperatureService
       = this.accessory.getService(this.platform.Service.TemperatureSensor)
         || this.accessory.addService(this.platform.Service.TemperatureSensor);
-    temperatureService.setCharacteristic(this.platform.Characteristic.Name, accessory.context.device.name);
-    temperatureService.getCharacteristic(this.platform.Characteristic.CurrentTemperature)
+    this.temperatureService.setCharacteristic(this.platform.Characteristic.Name, accessory.context.device.name);
+    this.temperatureService.getCharacteristic(this.platform.Characteristic.CurrentTemperature)
       .on(CharacteristicEventTypes.GET, this.getCurrentTemperature.bind(this));
 
     // Remo-mini does not have humidity and light sensors
     if (!accessory.context.device.firmware_version.startsWith('Remo-mini')) {
-      const humidityService
+      this.humidityService
         = this.accessory.getService(this.platform.Service.HumiditySensor)
           || this.accessory.addService(this.platform.Service.HumiditySensor);
-      humidityService.getCharacteristic(this.platform.Characteristic.CurrentRelativeHumidity)
+      this.humidityService.getCharacteristic(this.platform.Characteristic.CurrentRelativeHumidity)
         .on(CharacteristicEventTypes.GET, this.getCurrentHumidity.bind(this));
 
-      const lighService
+      this.lightService
         = this.accessory.getService(this.platform.Service.LightSensor)
           || this.accessory.addService(this.platform.Service.LightSensor);
-      lighService.getCharacteristic(this.platform.Characteristic.CurrentAmbientLightLevel)
+      this.lightService.getCharacteristic(this.platform.Characteristic.CurrentAmbientLightLevel)
         .on(CharacteristicEventTypes.GET, this.getCurrentLightLevel.bind(this));
     }
 
@@ -56,9 +59,13 @@ export class NatureNemoSensorAccessory {
         this.platform.logger.info('[%s] Current Temperature -> %s', this.name, sensorValue.te);
         this.platform.logger.info('[%s] Current Humidity -> %s', this.name, sensorValue.hu);
         this.platform.logger.info('[%s] Current Light Level -> %s', this.name, sensorValue.il);
-        this.service.updateCharacteristic(this.platform.Characteristic.CurrentTemperature, sensorValue.te);
-        this.service.updateCharacteristic(this.platform.Characteristic.CurrentRelativeHumidity, sensorValue.hu);
-        this.service.updateCharacteristic(this.platform.Characteristic.CurrentAmbientLightLevel, sensorValue.il); 
+        this.temperatureService.updateCharacteristic(this.platform.Characteristic.CurrentTemperature, sensorValue.te);
+        if(sensorValue.hu) {
+          this.humidityService?.updateCharacteristic(this.platform.Characteristic.CurrentRelativeHumidity, sensorValue.hu);
+        }
+        if(sensorValue.il) {
+          this.lightService?.updateCharacteristic(this.platform.Characteristic.CurrentAmbientLightLevel, sensorValue.il); 
+        }
       }).catch((err) => {
         this.platform.logger.error(err.message);
       });
