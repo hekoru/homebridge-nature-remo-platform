@@ -1,3 +1,4 @@
+import { SwingMode } from 'hap-nodejs/dist/lib/definitions';
 import {
   CharacteristicEventTypes,
   CharacteristicGetCallback,
@@ -18,6 +19,7 @@ export class NatureNemoAirConAccessory {
     targetHeatingCoolingState: this.platform.Characteristic.TargetHeatingCoolingState.OFF,
     rotationSpeed: 'auto',
     targetTemperature: 24,
+    swingMode: 'auto',
   };
 
   constructor(
@@ -59,7 +61,7 @@ export class NatureNemoAirConAccessory {
 
     if(fanSpeeds) {
       const fanService
-        = this.accessory.getService(this.platform.Service.Fanv2) || this.accessory.addService(this.platform.Service.Fanv2);
+        = this.accessory.getService('Fan Speed') || this.accessory.addService(this.platform.Service.Fanv2, 'Fan Speed', 'SUB_CONTROL');
       this.accessory.context.speeds = fanSpeeds;
       
       const fanSpeedStep = this.getFanSpeedStep(fanSpeeds);
@@ -70,9 +72,35 @@ export class NatureNemoAirConAccessory {
       fanService.getCharacteristic(this.platform.Characteristic.RotationSpeed)
         .on(CharacteristicEventTypes.GET, this.getRotationSpeed.bind(this))
         .on(CharacteristicEventTypes.SET, this.setRotationSpeed.bind(this))
-        .props.minStep = fanSpeedStep;
+        .setProps ({
+          minStep : fanSpeedStep,
+          minValue : fanSpeedStep,
+        });
+
+      fanService.getCharacteristic(this.platform.Characteristic.CurrentFanState)
+        .on(CharacteristicEventTypes.GET, this.getFanState.bind(this));
+
     }
     
+    // let swingModes = accessory.context.appliance.aircon?.range?.modes?.cool?.dir;
+    // if(!swingModes) {
+    //   accessory.context.appliance.aircon?.range?.modes?.warm?.dir;
+    // }
+
+    // if(swingModes) {
+    //   this.platform.logger('Supports swings!');
+    //   swingModes = accessory.context.appliance.aircon?.range?.modes?.warm?.dir;
+    //   swingModes.forEach(swingMode => {
+    //     this.platform.logger('Trying to add swing mode ', swingMode);
+    //     const switchName = this.deviceId+'.swing.'+swingMode;
+    //     this.platform.logger('Switch name!', switchName);
+    //     const swingSwitch = this.accessory.getService(switchName)
+    //       || this.accessory.addService(this.platform.Service.Switch, switchName, 'SWING_MODE_'+swingMode);
+
+        
+    //   });
+    // }
+
 
     // this.platform.logger('WAT ', accessory.context.appliance.aircon.range.modes);
 
@@ -94,7 +122,7 @@ export class NatureNemoAirConAccessory {
 
   private getFanSpeedStep(fanSpeeds: Array<string>) {
     return parseFloat(
-      (100 / fanSpeeds.length).toFixed(2),
+      (100 / (fanSpeeds.length)).toFixed(2),
     );
   }
 
@@ -105,7 +133,7 @@ export class NatureNemoAirConAccessory {
       if(airConState.vol) {
         this.state.rotationSpeed = airConState.vol;
         const homeKitRotationSpeed = this.natureToHomeKitRotationSpeed(airConState.vol, this.accessory.context.speeds);
-        
+        this.platform.logger.info('[%s] Translated Rotation Speed -> %s', this.name, homeKitRotationSpeed);
         callback(null, homeKitRotationSpeed);
       } else {
         callback(new Error('Rotation speed not returned in current state'));
@@ -130,6 +158,55 @@ export class NatureNemoAirConAccessory {
         callback(err);
       });
     }
+  }
+
+  getSwingMode(callback: CharacteristicGetCallback): void {
+    this.platform.logger.debug('getSwingMode called');
+    this.platform.natureRemoApi.getAirConState(this.id).then((airConState) => {
+      this.platform.logger.info('[%s] Swing mode -> %s', this.name, airConState.dir);
+      if(airConState.dir) {
+        this.state.swingMode = airConState.dir;
+        const homeKitRotationSpeed = this.natureToHomeKitRotationSpeed(airConState.dir, this.accessory.context.swingModes);
+        
+        callback(null, homeKitRotationSpeed);
+      } else {
+        callback(new Error('Swing mode not returned in current state'));
+      }
+    }).catch((err) => {
+      this.platform.logger.error(err.message);
+      callback(err);
+    });
+  }
+
+  setSwingMode(value: CharacteristicValue, callback: CharacteristicSetCallback): void {
+    const targetSwingMode = this.homekitToNatureRotationSpeed(value as number, this.accessory.context.swingModes);
+    if(this.state.swingMode === targetSwingMode) {
+      callback(null);
+    } else {
+      this.state.swingMode = targetSwingMode;
+      this.platform.natureRemoApi.setAirconSwing(this.id, targetSwingMode).then(() => {
+        this.platform.logger.info('[%s] Target Swing Mode <- %s (%s)', this.name, targetSwingMode, value);
+        callback(null);
+      }).catch((err) => {
+        this.platform.logger.error(err.message);
+        callback(err);
+      });
+    }
+  }
+
+  getFanState(callback: CharacteristicGetCallback): void {
+    this.platform.logger.debug('getFanState called');
+    this.platform.natureRemoApi.getAirConState(this.id).then((airConState) => {
+      this.platform.logger.info('[%s] (Fan) Current Heater Cooler State -> %s, %s', this.name, airConState.on, airConState.mode);
+      if(airConState.on) {
+        callback(null, this.platform.Characteristic.CurrentFanState.BLOWING_AIR);
+      } else {
+        callback(null, this.platform.Characteristic.CurrentFanState.INACTIVE);
+      }
+    }).catch((err) => {
+      this.platform.logger.error(err.message);
+      callback(err);
+    });
   }
 
   getCurrentHeatingCoolingState(callback: CharacteristicGetCallback): void {
@@ -264,13 +341,13 @@ export class NatureNemoAirConAccessory {
   }
 
   private natureToHomeKitRotationSpeed(speed: string, values: Array<string>) : number {
-    return values.indexOf(speed) + 1 * this.getFanSpeedStep(values);
+    return (values.indexOf(speed) + 1) * this.getFanSpeedStep(values);
   }
 
   private homekitToNatureRotationSpeed(speed: number, values: Array<string>) : string {
 
     if(speed === 0) {
-      return values[0];
+      throw new Error('Speed can not be set to zero');
     } else if (speed === 100){
       return values[values.length - 1];
     } else {

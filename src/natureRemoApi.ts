@@ -196,6 +196,10 @@ export class NatureRemoApi {
     this.setAirconSettings(applianceId, { 'air_volume': speed });
   }
 
+  async setAirconSwing(applianceId: string, direction: string): Promise<void> {
+    this.setAirconSettings(applianceId, { 'air_direction': direction });
+  }
+
   private async setAirconSettings(applianceId: string, settings: Record<string, string>): Promise<void> {
     const url = `${API_URL}/1/appliances/${applianceId}/aircon_settings`;
     this.postMessage(url, settings);
