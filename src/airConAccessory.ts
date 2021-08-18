@@ -54,33 +54,33 @@ export class NatureNemoAirConAccessory {
       .on(CharacteristicEventTypes.GET, this.getTemperatureDisplayUnits.bind(this))
       .on(CharacteristicEventTypes.SET, this.setTemperatureDisplayUnits.bind(this));
 
-    let fanSpeeds = accessory.context.appliance.aircon?.range?.modes?.cool?.vol;
-    if(!fanSpeeds) {
-      fanSpeeds = accessory.context.appliance.aircon?.range?.modes?.warm?.vol;
-    }
+    // let fanSpeeds = accessory.context.appliance.aircon?.range?.modes?.cool?.vol;
+    // if(!fanSpeeds) {
+    //   fanSpeeds = accessory.context.appliance.aircon?.range?.modes?.warm?.vol;
+    // }
 
-    if(fanSpeeds) {
-      const fanService
-        = this.accessory.getService('Fan Speed') || this.accessory.addService(this.platform.Service.Fanv2, 'Fan Speed', 'SUB_CONTROL');
-      this.accessory.context.speeds = fanSpeeds;
+    // if(fanSpeeds) {
+    //   const fanService
+    //     = this.accessory.getService('Fan Speed') || this.accessory.addService(this.platform.Service.Fanv2, 'Fan Speed', 'SUB_CONTROL');
+    //   this.accessory.context.speeds = fanSpeeds;
       
-      const fanSpeedStep = this.getFanSpeedStep(fanSpeeds);
+    //   const fanSpeedStep = this.getFanSpeedStep(fanSpeeds);
 
-      this.accessory.context.fanSpeedStep = fanSpeedStep;
+    //   this.accessory.context.fanSpeedStep = fanSpeedStep;
 
-      fanService.setCharacteristic(this.platform.Characteristic.Name, 'Fan Speed');
-      fanService.getCharacteristic(this.platform.Characteristic.RotationSpeed)
-        .on(CharacteristicEventTypes.GET, this.getRotationSpeed.bind(this))
-        .on(CharacteristicEventTypes.SET, this.setRotationSpeed.bind(this))
-        .setProps ({
-          minStep : fanSpeedStep,
-          minValue : fanSpeedStep,
-        });
+    //   fanService.setCharacteristic(this.platform.Characteristic.Name, 'Fan Speed');
+    //   fanService.getCharacteristic(this.platform.Characteristic.RotationSpeed)
+    //     .on(CharacteristicEventTypes.GET, this.getRotationSpeed.bind(this))
+    //     .on(CharacteristicEventTypes.SET, this.setRotationSpeed.bind(this))
+    //     .setProps ({
+    //       minStep : fanSpeedStep,
+    //       minValue : fanSpeedStep,
+    //     });
 
-      fanService.getCharacteristic(this.platform.Characteristic.CurrentFanState)
-        .on(CharacteristicEventTypes.GET, this.getFanState.bind(this));
+    //   fanService.getCharacteristic(this.platform.Characteristic.CurrentFanState)
+    //     .on(CharacteristicEventTypes.GET, this.getFanState.bind(this));
 
-    }
+    // }
     
     // let swingModes = accessory.context.appliance.aircon?.range?.modes?.cool?.dir;
     // if(!swingModes) {
